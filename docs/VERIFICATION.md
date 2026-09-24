@@ -18,4 +18,8 @@ API coverage includes all four required signup fields, both login fields, unknow
 
 The downloaded MongoDB 8 executable and Playwright's current downloadable Chromium were incompatible with this computer's macOS version. Final tests instead used MongoDB 7.0.14 and the already installed Chrome; both completed successfully.
 
-Atlas connectivity is not verified: it requires the owner's Atlas account, connection string, and IP access configuration. The Zoom video and Brightspace submission require the student's own recording and submission.
+Atlas connectivity and the complete browser flow were additionally verified on September 24, 2026. The application used the owner's Atlas cluster through the ignored local server/.env file. A temporary user was registered from React and confirmed in pa2.users with all five required fields and a hashed password. Duplicate signup and an incorrect password were rejected; correct credentials produced the login acknowledgement. The unique username index was present, and there were no browser runtime errors. Only the temporary verification user was removed afterward.
+
+The repository contains no Atlas credentials. Other machines must configure their own server/.env and network access. Use npm run dev for Atlas; npm run demo remains the separate local MongoDB mode.
+
+The Zoom video and Brightspace submission still require the student's own recording and submission.
