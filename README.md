@@ -1,149 +1,150 @@
-# ICSI 418Y PA2 — Login and Signup
+# ICSI 418Y Programming Assignment 2
 
-A React application that sends signup and login requests to an Express API and stores users in MongoDB. Successful login displays an acknowledgement, as required by PA2; this assignment does not create an authenticated session or protected pages.
+## Full-Stack Login and Signup
+
+This application implements user registration and login using React, Node.js, Express, and MongoDB Atlas. The React frontend sends form data to the Express API through HTTP requests, and the backend validates the input, stores user records, and checks login credentials.
+
+Successful login displays an acknowledgement in the interface, as specified in PA2. The application does not create a persistent login session or provide protected pages. The frontend and backend run locally; Atlas hosts the database.
 
 ![Login interface](docs/login-preview.png)
 
-## Quick start with local MongoDB
+## Features
 
-Requires Node.js 22.12 or newer and npm. From the repository root:
+- Separate React signup and login forms with controlled inputs managed by `useState`.
+- Signup with first name, last name, username, and password.
+- Required-field validation in both the frontend and backend.
+- Duplicate username detection, backed by a unique MongoDB index.
+- Login validation for existing users, with feedback for incorrect credentials.
+- Visible success, validation, network, and server error messages.
+- Salted password hashing with Node.js `crypto.scrypt`.
+
+## Running the Application
+
+**Prerequisites:** Node.js 22.12 or newer, npm, and a MongoDB Atlas deployment with a database user and the current IP address allowed in its network access settings.
+
+Clone the repository and install dependencies from the project root:
 
 ```bash
+git clone https://github.com/zoeSuen77/icsi418y-pa2.git
+cd icsi418y-pa2
 npm ci
-npm run demo
 ```
 
-Open **http://localhost:5173**. The Express API runs at **http://localhost:9000**.
-
-The first demo run downloads a real MongoDB 7.0.14 executable. The helper starts it on `127.0.0.1:27018`, then starts Express and Vite. It is not a mocked database: user documents are stored on disk in `.local-data/mongo` and survive a normal stop/restart. That directory and the downloaded binary are ignored by Git. This version also runs on the development machine's macOS 13.
-
-Stop the application with **Ctrl+C**. Keep ports 5173, 9000, and 27018 free. The demo explicitly uses the local `pa2` database, regardless of an Atlas URI in `.env`.
-
-To inspect actual MongoDB documents while the demo runs:
-
-```bash
-npm run db:users -- --local
-```
-
-You can also connect MongoDB Compass to `mongodb://127.0.0.1:27018` and open `pa2.users`.
-
-## Course setup with MongoDB Atlas
-
-The course environment guide uses Atlas. Use this mode for the Atlas-based demonstration described in that guide.
-
-1. Create an Atlas deployment, a database user, and an IP access entry for your current IP.
-2. Choose **Connect → Drivers → Node.js** in Atlas and copy the connection string.
-3. Copy `server/.env.example` to `server/.env` and replace `MONGO_URI` with your actual Atlas URI. URL-encode any special characters in the database username/password.
-4. From the repository root run `npm ci`, then `npm run dev`.
-5. Open http://localhost:5173. After signup, inspect the **pa2 → users** collection in Atlas.
-
-Example configuration (placeholders only):
+Copy `server/.env.example` to `server/.env` and set `MONGO_URI` to an Atlas connection string. The following values are placeholders; replace the database credentials and cluster hostname with valid values. Special characters in the username and password must be URL-encoded.
 
 ```dotenv
-MONGO_URI=mongodb+srv://YOUR_DB_USER:YOUR_ENCODED_PASSWORD@YOUR_CLUSTER.mongodb.net/?retryWrites=true&w=majority
+MONGO_URI="mongodb+srv://YOUR_DB_USER:YOUR_ENCODED_PASSWORD@YOUR_CLUSTER.mongodb.net/?retryWrites=true&w=majority"
 DB_NAME=pa2
 PORT=9000
 CLIENT_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
 
-Alternatively, use two terminals, as in the course guide:
+Start both applications from the project root:
 
 ```bash
-# Terminal 1, from the project root
-cd client
 npm run dev
 ```
 
+| Component | Address |
+| --- | --- |
+| React frontend | http://localhost:5173 |
+| Express API | http://localhost:9000 |
+| MongoDB database and collection | `pa2.users` in Atlas |
+
+The backend prints `Connected to MongoDB` after connecting and creating the unique username index. Registered users can be inspected in Atlas Data Explorer under `pa2` → `users`. Stop the application with **Ctrl+C**.
+
+Database credentials are supplied through the local environment file. `.env`, dependencies, and local database files are excluded from version control. The repository includes only configuration examples.
+
+### Local MongoDB Option
+
+For evaluation without Atlas credentials, the project also includes a local MongoDB launcher. After `npm ci`, run:
+
 ```bash
-# Terminal 2, from the project root
-cd server
-node server.js
+npm run demo
 ```
 
-Dependencies are npm workspaces and are installed together from the repository root. The shared `package-lock.json` fixes their versions. If you change the API port, also copy `client/.env.example` to `client/.env` and update `VITE_API_URL`; restart Vite afterward.
+This command starts the same React frontend and Express API with a real MongoDB process on `127.0.0.1:27018`. The first run downloads MongoDB 7.0.14. Records persist in the ignored `.local-data/mongo` directory. This mode uses local MongoDB regardless of the Atlas configuration in `.env`; run one mode at a time.
 
-Never upload `.env`, `node_modules`, `.cache`, or `.local-data`. A real Atlas connection string is not included in this repository.
+Local records can be inspected with MongoDB Compass at `mongodb://127.0.0.1:27018`, or from a second terminal:
 
-## How it works
-
-```text
-React controlled form (useState)
-    → fetch POST with JSON
-    → Express validation and route handler
-    → MongoDB users.findOne / users.insertOne
-    → HTTP status and JSON message
-    → React success or error feedback
+```bash
+npm run db:users -- --local
 ```
 
-`App.jsx` switches between `Login.jsx` and `Signup.jsx`. Form inputs are controlled with `useState`; `onSubmit` prevents a page reload. `api.js` sends JSON with `fetch`, checks `response.ok`, and handles network failures. Pending submissions disable the form. Status messages are visible and announced with `role="status"` or `role="alert"`.
+## Implementation
 
-`server.js` loads `server/.env` through dotenv, connects once using the official MongoDB driver, and creates a unique index on `username` before listening. `app.js` validates inputs, searches MongoDB, creates users, and checks credentials. Usernames are trimmed and stored in lowercase; first and last names are trimmed. Passwords are compared exactly, without trimming.
+**Frontend:** `App.jsx` switches between `Signup.jsx` and `Login.jsx`. Each form stores input values, feedback, and pending status in React state. Submit handlers prevent a page reload and call the shared `postForm` helper in `api.js`. This helper sends JSON with `fetch`, checks the response status, and handles failed requests. Form controls are disabled while a request is pending.
 
-`passwords.js` uses Node's built-in `crypto.scrypt` with a random salt. The required `password` field contains the encoded salt and hash, not the original password. Login derives the submitted password's hash and compares it using `timingSafeEqual`. Responses never include this field. The pre-insert lookup gives a friendly duplicate message; the unique index also rejects simultaneous duplicate requests.
+**Backend:** `server.js` loads environment configuration, connects to MongoDB using the official Node.js driver, and creates a unique index on `username`. Express parses JSON requests and handles the `/signup` and `/login` routes in `app.js`. CORS is configured for the local frontend origins.
 
-## MongoDB document
+**Signup:** The backend validates all four required fields and normalizes the username by trimming whitespace and converting it to lowercase. It checks for an existing user with `findOne`, hashes the password, and saves the new document with `insertOne`. The unique index also prevents simultaneous requests from creating duplicate usernames.
 
-```text
-_id        ObjectId generated by MongoDB
-f_name     First name
-l_name     Last name
-username   Normalized, unique username
-password   scrypt$<random salt>$<derived hash>
-```
+**Login:** The backend validates the username and password, retrieves the matching user, and verifies the supplied password against the stored hash. Passwords are compared exactly, including any leading or trailing spaces. Unknown usernames and incorrect passwords receive the same login failure message.
 
-Names have a maximum of 100 characters, usernames 64, and passwords 1024. Every field must be a nonempty string; whitespace-only input is rejected. The app does not impose an additional password-length minimum beyond the assignment's required-field check.
+**Password storage:** `passwords.js` generates a random salt and derives a hash using `scrypt`. The stored value contains the algorithm, salt, and hash. Login derives a hash using the saved salt and compares the results with `timingSafeEqual`. API responses exclude the password field.
 
-## API
+## User Document
 
-| Route | JSON request | Results |
+| Field | Stored value |
+| --- | --- |
+| `_id` | ObjectId generated by MongoDB |
+| `f_name` | First name |
+| `l_name` | Last name |
+| `username` | Normalized username with a unique index |
+| `password` | `scrypt$<salt>$<hash>` |
+
+All four input fields must be nonempty strings; whitespace-only input is rejected. Maximum lengths are 100 characters for each name, 64 for the username, and 1024 for the password.
+
+## API Endpoints
+
+| Method and path | JSON request fields | Response status |
 | --- | --- | --- |
-| `GET /` | None | `200` server acknowledgement |
-| `POST /signup` | `f_name`, `l_name`, `username`, `password` | `201` created, `400` invalid fields, `409` duplicate, `500` database/server failure |
-| `POST /login` | `username`, `password` | `200` successful login, `400` invalid fields, `401` incorrect credentials, `500` database/server failure |
+| `GET /` | None | `200`: server acknowledgement |
+| `POST /signup` | `f_name`, `l_name`, `username`, `password` | `201`: created; `400`: invalid input; `409`: duplicate username; `500`: server/database error |
+| `POST /login` | `username`, `password` | `200`: valid credentials; `400`: invalid input; `401`: invalid credentials; `500`: server/database error |
 
-Every response contains a `message`. Successful signup/login responses also include the public user fields. Unknown usernames and incorrect passwords share the same understandable failure message. Malformed JSON returns `400`; oversized requests return `413`.
+Responses contain a `message` for display in the interface. Successful signup and login responses also include the user's public fields. Malformed JSON returns `400`; oversized request bodies return `413`.
 
-## Verification
+## Testing
+
+Run the API integration tests and production frontend build:
 
 ```bash
-npm test                    # Real MongoDB + HTTP integration tests
-npm run build               # Production frontend build
-npx playwright install chromium
-npm run test:ui              # Browser tests, starts local demo when needed
+npm test
+npm run build
 ```
 
-On macOS 13, use the installed Google Chrome instead of downloading Playwright's current Chromium:
+API tests run against a separate temporary MongoDB instance. They cover required fields, user storage, password hashing, duplicate usernames, concurrent signup requests, valid and invalid login, malformed requests, CORS, and a disconnected database.
+
+Browser tests exercise the complete signup/login flow, network and server error feedback, password visibility, and mobile layout. They start the local MongoDB mode and remove the test account afterward. Stop any existing application on ports 5173 and 9000 before running them:
+
+```bash
+npx playwright install chromium
+npm run test:ui
+```
+
+To use an installed Google Chrome browser instead, including on the tested macOS 13 environment:
 
 ```bash
 PLAYWRIGHT_CHANNEL=chrome npm run test:ui
 ```
 
-API tests use a separate temporary MongoDB instance and database. Browser tests use `npm run demo`, create a uniquely named test user, then delete only that test user. If a demo is already running, they reuse it. Do not run the UI tests against an unrelated app on port 5173.
+Validation recorded on September 23–24, 2026: **19 API tests passed, 5 browser tests passed, and the production build completed successfully.** Signup, persisted user records, duplicate rejection, and successful/failed login were also verified through the browser against Atlas. See the [verification record](docs/VERIFICATION.md) for details.
 
-Tests cover required fields, invalid field types, stored fields and password hashing, duplicate and simultaneous signup, correct/incorrect login, exact password comparison, malformed/oversized requests, CORS, a disconnected database, browser network/server errors, password visibility, and mobile overflow.
-
-## Important files
+## Project Structure
 
 ```text
-client/src/App.jsx                   Switch between login and signup
-client/src/components/Login.jsx      Login form and state
-client/src/components/Signup.jsx     Signup form and state
-client/src/components/FormFields.jsx Shared accessible form controls
-client/src/api.js                    HTTP requests and request errors
-server/server.js                    Environment, MongoDB connection, unique index
-server/app.js                       Validation and Express routes
-server/passwords.js                 Password hashing and comparison
-scripts/demo.cjs                    Local MongoDB development launcher
-scripts/show-users.cjs              Read actual MongoDB documents
-tests/                              API and browser verification
-docs/DEMO_SCRIPT_EN.md               Timed English Zoom demonstration script
-docs/操作与提交指南.md                  Chinese startup and submission guide
+client/src/
+  App.jsx                    Application layout and form selection
+  components/Signup.jsx      Signup form and state
+  components/Login.jsx       Login form and state
+  components/FormFields.jsx  Shared form controls and feedback
+  api.js                     HTTP request helper
+server/
+  server.js                  Configuration, database connection, and startup
+  app.js                     Validation and Express routes
+  passwords.js               Password hashing and verification
+  .env.example               Configuration template
+scripts/                     Local MongoDB launcher and record inspection
+tests/                       API and browser tests
 ```
-
-## Submission
-
-The assignment requires a GitHub repository URL and a **3–5 minute Zoom demonstration with your own code explanation**. Use the script in `docs/DEMO_SCRIPT_EN.md` to prepare, then record your actual application. Show signup, the stored MongoDB document, a duplicate username, valid login, invalid login, and the main code files. The handout states that submissions without the video will not be graded.
-
-Before submission, run the checks, commit final changes, push, and verify the latest files on GitHub. Make sure the instructor can access the repository and the Zoom recording. Do not show `server/.env` or the Atlas connection string on screen.
-
-Reference guides: [course environment setup](https://shy-snowdrop-7b3.notion.site/Programming-Assignment-2-Environment-Setup-3de4baae280380a999d6c82cd007e045) and [course implementation instructions](https://shy-snowdrop-7b3.notion.site/Programming-Assignment-2-Implementation-Instructions-3de4baae280380b6ba16d8398f1c24b5).
